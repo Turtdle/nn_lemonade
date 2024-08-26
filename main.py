@@ -56,14 +56,39 @@ class EvolutionaryTrainer:
             ])
             prediction = model.predict(np.array([state]), verbose=0)[0]
             
-            cups_to_buy = max(0, int(prediction[0] * 100))
+            # Convert predictions to more granular purchase amounts
+            cups_to_buy = max(0, int(prediction[0]))  # 0 to 50 cups (1250 max)
+            lemons_to_buy = max(0, int(prediction[1]))  # 0 to 20 lemons (500 max)
+            sugar_to_buy = max(0, int(prediction[2]))  # 0 to 20 sugar (500 max)
+            ice_to_buy = max(0, int(prediction[3]))  # 0 to 50 ice (1250 max)
+            
+            # Ensure we don't overspend
+            total_cost = (cups_to_buy * game.state['price_cups'][0] +
+                          lemons_to_buy * game.state['price_lemons'][0] +
+                          sugar_to_buy * game.state['price_sugar'][0] +
+                          ice_to_buy * game.state['price_ice'][0])
+            
+            if total_cost > game.state['money']:
+                scale_factor = game.state['money'] / total_cost
+                cups_to_buy = int(cups_to_buy * scale_factor)
+                lemons_to_buy = int(lemons_to_buy * scale_factor)
+                sugar_to_buy = int(sugar_to_buy * scale_factor)
+                ice_to_buy = int(ice_to_buy * scale_factor)
+            
+            #print(f"Buying: {cups_to_buy*25} cups, {lemons_to_buy*25} lemons, {sugar_to_buy*25} sugar, {ice_to_buy*25} ice")
+            
             game.buy_supplies('cups', cups_to_buy, 0)
-            game.buy_supplies('lemons', max(0, int(prediction[1] * 50)), 0)
-            game.buy_supplies('sugar', max(0, int(prediction[2] * 50)), 0)
-            game.buy_supplies('ice', max(0, int(prediction[3] * 100)), 0)
-            game.set_price(max(1, int(prediction[4] * 100)))  # Ensure price is at least 1 cent
-            recipe_amount = max(1, int(prediction[5] * 10))  # Ensure at least 1 of each ingredient
-            game.set_recipe(recipe_amount, recipe_amount, recipe_amount)
+            game.buy_supplies('lemons', lemons_to_buy, 0)
+            game.buy_supplies('sugar', sugar_to_buy, 0)
+            game.buy_supplies('ice', ice_to_buy, 0)
+            
+            price = max(0.01, min(prediction[4] * 2, 2.00))  # Price between $0.01 and $2.00
+            game.set_price(price)
+            
+            recipe_amount1 = max(1, int(prediction[5]))
+            recipe_amount2 = max(1, int(prediction[6]))
+            recipe_amount3 = max(1, int(prediction[7] ))
+            game.set_recipe(recipe_amount1, recipe_amount2, recipe_amount3)
             
             results = game.simulate_day()
             total_profit += results['total_sold'] * game.state['price'] - game.state['total_expenses']
@@ -141,14 +166,34 @@ if __name__ == "__main__":
         ])
         prediction = best_model.predict(np.array([state]), verbose=0)[0]
         
-        cups_to_buy = max(0, int(prediction[0] * 100))
+        cups_to_buy = max(0, int(prediction[0] ))  # 0 to 50 cups (1250 max)
+        lemons_to_buy = max(0, int(prediction[1]))  # 0 to 20 lemons (500 max)
+        sugar_to_buy = max(0, int(prediction[2]))  # 0 to 20 sugar (500 max)
+        ice_to_buy = max(0, int(prediction[3] ))  # 0 to 50 ice (1250 max)
+        
+        # Ensure we don't overspend
+        total_cost = (cups_to_buy * game.state['price_cups'][0] +
+                        lemons_to_buy * game.state['price_lemons'][0] +
+                        sugar_to_buy * game.state['price_sugar'][0] +
+                        ice_to_buy * game.state['price_ice'][0])
+        
+        if total_cost > game.state['money']:
+            scale_factor = game.state['money'] / total_cost
+            cups_to_buy = int(cups_to_buy * scale_factor)
+            lemons_to_buy = int(lemons_to_buy * scale_factor)
+            sugar_to_buy = int(sugar_to_buy * scale_factor)
+            ice_to_buy = int(ice_to_buy * scale_factor)
+        
+        print(f"Buying: {cups_to_buy} cups, {lemons_to_buy} lemons, {sugar_to_buy} sugar, {ice_to_buy} ice")
+        
         game.buy_supplies('cups', cups_to_buy, 0)
-        game.buy_supplies('lemons', max(0, int(prediction[1] * 50)), 0)
-        game.buy_supplies('sugar', max(0, int(prediction[2] * 50)), 0)
-        game.buy_supplies('ice', max(0, int(prediction[3] * 100)), 0)
-        game.set_price(max(1, int(prediction[4] * 100)))  # Ensure price is at least 1 cent
-        recipe_amount = max(1, int(prediction[5] * 10))  # Ensure at least 1 of each ingredient
-        game.set_recipe(recipe_amount, recipe_amount, recipe_amount)
+        game.buy_supplies('lemons', lemons_to_buy, 0)
+        game.buy_supplies('sugar', sugar_to_buy, 0)
+        game.buy_supplies('ice', ice_to_buy, 0)
+        recipe_amount1 = max(1, int(prediction[5]))
+        recipe_amount2 = max(1, int(prediction[6] ))
+        recipe_amount3 = max(1, int(prediction[7] ))
+        game.set_recipe(recipe_amount1, recipe_amount2, recipe_amount3)
         
         results = game.simulate_day()
         daily_profit = results['total_sold'] * game.state['price'] - game.state['total_expenses']
@@ -161,25 +206,27 @@ if __name__ == "__main__":
 
     print("\nBest model's decision-making:")
     test_state = np.array([
-        25.0,  # temperature (25°C)
-        0.37,  # price_cups
-        0.08,  # price_lemons
-        0.07,  # price_sugar
-        0.008,  # price_ice
-        0,  # cups
-        0,  # lemons
-        0,  # sugar
-        0,  # ice
-        20,  # money (50.00)
-        0  # popularity
+        25.0,  # temperature (25°C, a warm day)
+        85,    # price_cups[0] (85 cents for 25 cups)
+        75,    # price_lemons[0] (75 cents for 25 lemons)
+        60,    # price_sugar[0] (60 cents for 25 cups of sugar)
+        85,    # price_ice[0] (85 cents for 25 ice cubes)
+        100,   # cups (current inventory)
+        50,    # lemons (current inventory)
+        75,    # sugar (current inventory)
+        200,   # ice (current inventory)
+        10000, # money (10000 cents = $100.00)
+        50     # popularity (moderate popularity)
     ])
     prediction = best_model.predict(np.array([test_state]), verbose=0)[0]
     
     print(f"For a typical summer day (25°C) with average market prices and inventory:")
-    print(f"  Cups to buy: {max(0, int(prediction[0] * 100))}")
-    print(f"  Lemons to buy: {max(0, int(prediction[1] * 50))}")
-    print(f"  Sugar to buy: {max(0, int(prediction[2] * 50))}")
-    print(f"  Ice to buy: {max(0, int(prediction[3] * 100))}")
-    print(f"  Price set: {format_money(max(1, int(prediction[4] * 100)))}")
-    recipe_amount = max(1, int(prediction[5] * 10))
-    print(f"  Recipe: {recipe_amount} lemons, {recipe_amount} sugar, {recipe_amount} ice")
+    print(f"  Cups to buy: {max(0, int(prediction[0] * 50))}")
+    print(f"  Lemons to buy: {max(0, int(prediction[1] * 20)) }")
+    print(f"  Sugar to buy: {max(0, int(prediction[2] * 20)) }")
+    print(f"  Ice to buy: {max(0, int(prediction[3] * 50)) }")
+    print(f"  Price set: {format_money(max(0.01, min(prediction[4] * 2, 2.00)))}")
+    recipe_amount1 = max(1, int(prediction[5]))
+    recipe_amount2 = max(1, int(prediction[6]))
+    recipe_amount3 = max(1, int(prediction[7] ))
+    print(f"  Recipe: {recipe_amount1} lemons, {recipe_amount2} sugar, {recipe_amount3} ice")

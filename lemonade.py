@@ -9,7 +9,7 @@ class LemonadeStand:
             'lemons': 0,
             'sugar': 0,
             'ice': 0,
-            'money': 2000,  # Cents
+            'money': 20000,  # Cents
             'temperature': 0,
             'temperature_farenheit': 0,
             'weather': None,
@@ -36,6 +36,7 @@ class LemonadeStand:
             'rain': 'Rain!'
         }
         self.new_day()
+        self.pitcher = 0
 
     def new_day(self):
         self.state['day'] += 1
@@ -66,10 +67,21 @@ class LemonadeStand:
 
     def buy_supplies(self, item, quantity, price_index):
         price = self.state[f'price_{item}'][price_index]
+        
+        if price_index == 0:
+            actual_quantity = 25 * quantity
+        elif price_index == 1:
+            actual_quantity = 50 * quantity
+        elif price_index == 2:
+            actual_quantity = 100 * quantity
+        else:
+            raise ValueError("Invalid price index")
+
         total_cost = price * quantity
         if total_cost > self.state['money']:
             return False
-        self.state[item] += quantity
+        
+        self.state[item] += actual_quantity
         self.state['money'] -= total_cost
         self.state['total_expenses'] += total_cost
         return True
@@ -83,43 +95,74 @@ class LemonadeStand:
         self.state['recipe_ice'] = ice
 
     def simulate_day(self):
-        pitcher = 0
         total_sold = 0
         total_customers = 0
         sold_out = False
 
         def refill_pitcher():
-            nonlocal pitcher, sold_out
-            if pitcher == 0 and self.state['lemons'] >= self.state['recipe_lemons'] and self.state['sugar'] >= self.state['recipe_sugar']:
-                pitcher = 8 + self.state['recipe_ice']
+            if self.pitcher == 0 and self.state['lemons'] >= self.state['recipe_lemons'] and self.state['sugar'] >= self.state['recipe_sugar'] and self.state['ice'] >= self.state['recipe_ice']:
+                self.pitcher = 8
                 self.state['lemons'] -= self.state['recipe_lemons']
                 self.state['sugar'] -= self.state['recipe_sugar']
+                print(f"Refilled pitcher. New pitcher level: {self.pitcher}")
             
-            if pitcher == 0 or self.state['cups'] == 0 or self.state['ice'] < self.state['recipe_ice']:
+            if self.pitcher == 0 or self.state['cups'] == 0 or self.state['ice'] < self.state['recipe_ice']:
+                nonlocal sold_out
                 sold_out = True
+               # print("Sold out of ingredients!")
 
         def buy_or_pass():
             weather_index = self.weather_options.index(self.state['weather'])
-            demand = ((self.state['temperature_farenheit'] - 50) / 200 + (5 - weather_index) / 20) * \
-                     (((self.state['temperature_farenheit'] / 4) - self.state['price']) / (self.state['temperature_farenheit'] / 4) + 1)
-            if self.state['rep_level'] < random.random() * (self.state['rep_level'] - 500):
-                demand = demand * self.state['reputation']
+            base_demand = ((self.state['temperature_farenheit'] - 50) / 200 + (5 - weather_index) / 20)
+            price_factor = min(1, max(0, (((self.state['temperature_farenheit'] / 4) - self.state['price']) / (self.state['temperature_farenheit'] / 4) + 0.5)))
+            demand = base_demand * price_factor
+            
             demand *= (self.state['recipe_lemons'] + 1) / 5
             demand *= (self.state['recipe_sugar'] + 4) / 8
-            return (demand + random.uniform(-0.1, 0.1)) * 1.3 > random.random()
+            
+            buying_chance = min(1, max(0, (demand + random.uniform(-0.1, 0.1)) * 1.3))
+            will_buy = buying_chance > random.random()
+            """
+            print(f"Weather index: {weather_index}, Base demand: {base_demand:.2f}")
+            print(f"Price factor: {price_factor:.2f}, Demand: {demand:.2f}")
+            print(f"Buying chance: {buying_chance:.2f}, Will buy: {will_buy}")
+            """
+            return will_buy
 
         def sell_glass():
-            nonlocal pitcher, total_sold
-            if not sold_out and pitcher > 0 and self.state['cups'] > 0 and self.state['ice'] >= self.state['recipe_ice']:
-                pitcher -= 1
+            nonlocal total_sold
+            if not sold_out and self.pitcher > 0 and self.state['cups'] > 0 and self.state['ice'] >= self.state['recipe_ice']:
+                self.pitcher -= 1
                 self.state['ice'] -= self.state['recipe_ice']
                 self.state['cups'] -= 1
                 self.state['money'] += self.state['price']
                 self.state['total_income'] += self.state['price']
                 total_sold += 1
+                print(f"Sold a glass! Total sold: {total_sold}")
                 refill_pitcher()
                 return True
             return False
+
+        refill_pitcher()  # Initial pitcher refill
+
+        for _ in range(100):  # Simulate 100 potential customers
+            if random.random() < 0.1:  # 10% chance of customer appearing
+                total_customers += 1
+                if buy_or_pass():
+                    if not sell_glass():
+                        break  # Stop if we can't sell anymore
+
+            if sold_out:
+                break
+
+        self.state['reputation'] += total_sold * 0.5  # Simple reputation increase
+        self.state['rep_level'] += total_customers
+
+        return {
+            'total_sold': total_sold,
+            'total_customers': total_customers,
+            'sold_out': sold_out
+        }
 
         for _ in range(100):  # Simulate 100 potential customers
             if random.random() < 0.1:  # 10% chance of customer appearing
@@ -153,19 +196,4 @@ def format_money(cents):
     cents = int(cents) % 100
     return f"${dollars}.{cents:02d}"
 
-
-game = LemonadeStand(duration=7)  # 7-day game
-
-for _ in range(game.state['duration']):
-    game.new_day()
-    # Here you would add code to display the day's info and get player input
-    game.buy_supplies('cups', 100, 0)  # Buy 10 cups at the lowest price
-    game.set_price(30)  # Set lemonade price to 30 cents
-    game.set_recipe(4, 4, 5)  # 4 lemons, 4 sugar, 5 ice
-    results = game.simulate_day()
-    # Here you would display the results to the player
-
-final_results = game.end_season()
-print(f"Total income: {format_money(final_results['outcome'])}")
-print(f"Inventory value: {format_money(final_results['inventory_value'])}")
 

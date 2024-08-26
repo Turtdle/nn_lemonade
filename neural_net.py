@@ -16,7 +16,7 @@ def build_model():
     model.add(layers.Dense(64, activation='relu'))
     
     # Output layer (changed from 7 to 6)
-    model.add(layers.Dense(6, activation='linear'))
+    model.add(layers.Dense(8, activation='linear'))
     
     model.compile(optimizer=optimizers.Adam(learning_rate=0.001),
                   loss=losses.mean_squared_error,
