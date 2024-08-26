@@ -138,7 +138,7 @@ class LemonadeStand:
                 self.state['money'] += self.state['price']
                 self.state['total_income'] += self.state['price']
                 total_sold += 1
-                print(f"Sold a glass! Total sold: {total_sold}")
+                print(f"Sold a glass! Total sold: {total_sold}, money earned: {format_money(self.state['price'])}")
                 refill_pitcher()
                 return True
             return False

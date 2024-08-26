@@ -5,8 +5,8 @@ game.set_price(5)
 game.set_recipe(4, 5, 5)
 
 game = LemonadeStand(duration=7)
-game.set_price(25)  # Set price to 25 cents
-game.set_recipe(4, 4, 4)  # Set recipe to 4 lemons, 4 sugar, 4 ice
+game.set_price(50)  # Set price to 25 cents
+game.set_recipe(8, 8, 8)  # Set recipe to 4 lemons, 4 sugar, 4 ice
 
 for day in range(game.state['duration']):
     game.new_day()
@@ -20,10 +20,10 @@ for day in range(game.state['duration']):
     print(f"Sugar: {game.state['sugar']}")
     print(f"Ice: {game.state['ice']}")
     
-    game.buy_supplies('cups', 1, 0)
-    game.buy_supplies('lemons', 1, 0)
-    game.buy_supplies('sugar', 1, 0)
-    game.buy_supplies('ice', 1, 0)
+    game.buy_supplies('cups', 5, 0)
+    game.buy_supplies('lemons', 5, 0)
+    game.buy_supplies('sugar', 5, 0)
+    game.buy_supplies('ice', 5, 0)
     
     print("\nAfter buying supplies:")
     print(f"Money: {format_money(game.state['money'])}")
