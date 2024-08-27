@@ -8,15 +8,15 @@ def build_model():
     model = models.Sequential()
     
     # Input layer
-    model.add(layers.Dense(64, activation='relu', input_shape=(11,)))
+    model.add(layers.Dense(64, activation='sigmoid', input_shape=(11,)))
     
     # Hidden layers
-    model.add(layers.Dense(128, activation='relu'))
-    model.add(layers.Dense(128, activation='relu'))
-    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dense(128, activation='sigmoid'))
+    model.add(layers.Dense(128, activation='sigmoid'))
+    model.add(layers.Dense(64, activation='sigmoid'))
     
     # Output layer (changed from 7 to 6)
-    model.add(layers.Dense(8, activation='linear'))
+    model.add(layers.Dense(8, activation='sigmoid'))
     
     model.compile(optimizer=optimizers.Adam(learning_rate=0.001),
                   loss=losses.mean_squared_error,

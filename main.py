@@ -1,287 +1,179 @@
-import numpy as np
-from keras.models import clone_model
-from lemonade import LemonadeStand, format_money
-from neural_net import build_model
-import time
-import logging
-from datetime import datetime
-class EvolutionaryTrainer:
-    def __init__(self, population_size=50, generations=5, mutation_rate=0.2):
-        self.population_size = population_size
-        self.generations = generations
-        self.mutation_rate = mutation_rate
-        print(f"Initializing population with {population_size} models...")
-        self.population = [build_model() for _ in range(population_size)]
-        print("Population initialized.")
+import random
+from typing import Dict, Tuple
 
-    def mutate(self, model):
-        new_model = clone_model(model)
-        new_model.set_weights(model.get_weights())
-        weights = new_model.get_weights()
-        for i in range(len(weights)):
-            if np.random.random() < self.mutation_rate:
-                noise = np.random.normal(0, 0.1, size=weights[i].shape)
-                weights[i] += noise
-        new_model.set_weights(weights)
-        return new_model
+class LemonadeStand:
+    def __init__(self, prices: Dict[str, float], money: float, temperature: float, weather_index: int):
+        self.prices = prices
+        self.state = {
+            "temperature": temperature,
+            "weather_index": weather_index,
+            "reputation": 500,
+            "money": money,
+            "total_income": 0,
+            "cups": 0,
+            "lemons": 0,
+            "sugar": 0,
+            "ice": 0
+        }
 
-    def crossover(self, model1, model2):
-        new_model = clone_model(model1)
-        weights1 = model1.get_weights()
-        weights2 = model2.get_weights()
-        new_weights = []
-        for w1, w2 in zip(weights1, weights2):
-            mask = np.random.random(size=w1.shape) >= 0.5
-            new_w = np.where(mask, w1, w2)
-            new_weights.append(new_w)
-        new_model.set_weights(new_weights)
-        return new_model
+    def simulate_day(self, recipe: Dict[str, int], sale_price: float) -> float:
+        customers = random.randint(50, 100)
+        profit = 0
+        sales = 0
 
-    def evaluate_model(self, model):
-        game = LemonadeStand(duration=7)
-        total_profit = 0
-        total_revenue = 0
-        total_expenses = 0
-        for _ in range(game.state['duration']):
-            game.new_day()
-            state = np.array([
-                float(game.state['temperature']) / 40,  # Normalized
-                float(game.state['price_cups'][0]) / 100,
-                float(game.state['price_lemons'][0]) / 100,
-                float(game.state['price_sugar'][0]) / 100,
-                float(game.state['price_ice'][0]) / 100,
-                float(game.state['cups']) / 1000,
-                float(game.state['lemons']) / 1000,
-                float(game.state['sugar']) / 1000,
-                float(game.state['ice']) / 1000,
-                float(game.state['money']) / 10000,
-                float(game.state['popularity']) / 100
-            ])
-            prediction = model.predict(np.array([state]), verbose=0)[0]
-            
-            # Convert predictions to purchase amounts
-            cups_to_buy = max(0, int(prediction[0] * 50))  # Scale to 0-50 range
-            lemons_to_buy = max(0, int(prediction[1] * 20))  # Scale to 0-20 range
-            sugar_to_buy = max(0, int(prediction[2] * 20))  # Scale to 0-20 range
-            ice_to_buy = max(0, int(prediction[3] * 50))  # Scale to 0-50 range
-            
-            # Calculate costs for each item
-            cups_cost = cups_to_buy * game.state['price_cups'][0]
-            lemons_cost = lemons_to_buy * game.state['price_lemons'][0]
-            sugar_cost = sugar_to_buy * game.state['price_sugar'][0]
-            ice_cost = ice_to_buy * game.state['price_ice'][0]
-            
-            total_cost = cups_cost + lemons_cost + sugar_cost + ice_cost
-            
-            # Apply proportional scaling if total cost exceeds available money
-            if total_cost > game.state['money']:
-                scale_factor = game.state['money'] / total_cost
-                cups_to_buy = max(0, int(cups_to_buy * scale_factor))
-                lemons_to_buy = max(0, int(lemons_to_buy * scale_factor))
-                sugar_to_buy = max(0, int(sugar_to_buy * scale_factor))
-                ice_to_buy = max(0, int(ice_to_buy * scale_factor))
-            
-            # Buy supplies
-            game.buy_supplies('cups', cups_to_buy, 0)
-            game.buy_supplies('lemons', lemons_to_buy, 0)
-            game.buy_supplies('sugar', sugar_to_buy, 0)
-            game.buy_supplies('ice', ice_to_buy, 0)
-            
-            price = max(1, min(prediction[4] * 2, 200))  # Price between $0.01 and $2.00
-            game.set_price(price)
-            
-            recipe_amount1 = max(1, int(prediction[5] * 10))  # Scale to 1-10 range
-            recipe_amount2 = max(1, int(prediction[6] * 10))  # Scale to 1-10 range
-            recipe_amount3 = max(1, int(prediction[7] * 10))  # Scale to 1-10 range
-            game.set_recipe(recipe_amount1, recipe_amount2, recipe_amount3)
-            
-            results = game.simulate_day()
-            daily_revenue = results['total_sold'] * game.state['price']
-            daily_expenses = game.state['total_expenses']
-            daily_profit = daily_revenue - daily_expenses
-            
-            total_revenue += daily_revenue
-            total_expenses += daily_expenses
-            total_profit += daily_profit
+        for _ in range(customers):
+            if self.state["cups"] > 0 and self.state["lemons"] >= recipe["lemons"] and \
+               self.state["sugar"] >= recipe["sugar"] and self.state["ice"] >= recipe["ice"]:
+                
+                demand = self.calculate_demand(recipe, sale_price)
+                if random.random() < demand:
+                    self.state["cups"] -= 1
+                    self.state["lemons"] -= recipe["lemons"]
+                    self.state["sugar"] -= recipe["sugar"]
+                    self.state["ice"] -= recipe["ice"]
+                    self.state["money"] += sale_price
+                    self.state["total_income"] += sale_price
+                    profit += sale_price
+                    sales += 1
+
+        print(f"Debug: Customers: {customers}, Sales: {sales}, Profit: ${profit:.2f}")
+        return profit
+
+    def calculate_demand(self, recipe: Dict[str, int], price: float) -> float:
+        temperature_factor = (self.state["temperature"] - 50) / 200
+        weather_factor = (5 - self.state["weather_index"]) / 20
+        price_factor = ((self.state["temperature"] / 4 - price) / (self.state["temperature"] / 4) + 1)
         
-        # Calculate inventory diversity score
-        inventory = np.array([game.state['cups'], game.state['lemons'], game.state['sugar'], game.state['ice']])
-        total_inventory = np.sum(inventory)
-        if total_inventory > 0:
-            inventory_ratios = inventory / total_inventory
-            diversity_score = -np.sum(inventory_ratios * np.log(inventory_ratios + 1e-10))  # Shannon entropy
-        else:
-            diversity_score = 0
+        base_demand = temperature_factor + weather_factor
+        base_demand *= price_factor
         
-        # Calculate the final fitness score
-        profit_score = max(0, total_profit) * 100000
-        revenue_score = total_revenue * 100  # Encourage higher revenue
-        inventory_score = total_inventory * 0.05  # Slight bonus for total inventory
-        diversity_reward = diversity_score * 1000  # Scale the diversity score
-        expense_penalty = max(0, total_expenses - total_revenue) * 0.05  # Penalty for overspending, but not as harsh
+        if self.state["reputation"] < random.random() * (self.state["reputation"] - 500):
+            base_demand *= self.state["reputation"] / 1000
+
+        recipe_factor = ((recipe["lemons"] + 1) / 5) * ((recipe["sugar"] + 4) / 8)
+        demand = base_demand * recipe_factor
+
+        # Add some randomness
+        demand += random.uniform(-0.1, 0.1)
         
-        fitness_score = profit_score + revenue_score + inventory_score + diversity_reward - expense_penalty
+        demand = min(max(demand, 0), 1)
+        print(f"Debug: Demand: {demand:.4f}")
+        return demand
+
+    def buy_ingredients(self, quantities: Dict[str, int]) -> bool:
+        total_cost = sum(quantities[item] * self.prices[item] for item in quantities)
+        if total_cost <= self.state["money"]:
+            for item, quantity in quantities.items():
+                self.state[item] += quantity
+            self.state["money"] -= total_cost
+            return True
+        return False
+
+def optimize_stand(stand: LemonadeStand) -> Tuple[Dict[str, int], float, Dict[str, int]]:
+    best_recipe = {"lemons": 4, "sugar": 4, "ice": 4}
+    best_price = 0.50
+    best_purchase = {"cups": 50, "lemons": 200, "sugar": 200, "ice": 200}
+    best_profit = float('-inf')
+
+    for _ in range(10000):  # Increased number of iterations for better optimization
+        recipe = {
+            "lemons": random.randint(1, 8),
+            "sugar": random.randint(1, 8),
+            "ice": random.randint(1, 8)
+        }
+        sale_price = random.uniform(0.10, 0.99)
         
-        return fitness_score
+        # Determine purchase quantities
+        max_sales = 100  # Maximum possible sales in a day
+        purchase = {
+            "cups": random.randint(50, max_sales),
+            "lemons": random.randint(50, max_sales * 2),
+            "sugar": random.randint(50, max_sales * 2),
+            "ice": random.randint(50, max_sales * 2)
+        }
 
-    def train(self):
-        print(f"Starting training for {self.generations} generations...")
-        start_time = time.time()
-        for generation in range(self.generations):
-            gen_start_time = time.time()
-            print(f"\nEvaluating Generation {generation + 1}/{self.generations}")
-            fitness_scores = []
-            for i, model in enumerate(self.population):
-                fitness = self.evaluate_model(model)
-                fitness_scores.append(fitness)
-                if (i + 1) % 10 == 0:
-                    print(f"  Evaluated {i + 1}/{self.population_size} models...")
-            print(fitness_scores)
-            print(f"Generation {generation + 1} evaluation complete.")
-            print(f"Best fitness: {format_money(max(fitness_scores))}")
-            print(f"Average fitness: {format_money(sum(fitness_scores) / len(fitness_scores))}")
-            
-            elite_size = self.population_size // 5
-            elite_indices = np.argsort(fitness_scores)[-elite_size:]
-            elite_population = [self.population[i] for i in elite_indices]
-            
-            print("Creating new population...")
-            new_population = elite_population.copy()
-            while len(new_population) < self.population_size:
-                if np.random.random() < 0.3:
-                    parent = np.random.choice(elite_population)
-                    child = self.mutate(parent)
-                else:
-                    parents = np.random.choice(elite_population, 2, replace=False)
-                    child = self.crossover(parents[0], parents[1])
-                new_population.append(child)
-            
-            self.population = new_population
-            gen_end_time = time.time()
-            print(f"Generation {generation + 1} completed in {gen_end_time - gen_start_time:.2f} seconds.")
+        # Create a copy of the stand for this iteration
+        test_stand = LemonadeStand(stand.prices, stand.state["money"], stand.state["temperature"], stand.state["weather_index"])
 
-        end_time = time.time()
-        print(f"\nTraining completed in {end_time - start_time:.2f} seconds.")
+        if not test_stand.buy_ingredients(purchase):
+            continue  # Skip this iteration if we can't afford the ingredients
 
-        print("Evaluating final population...")
-        final_fitness_scores = [self.evaluate_model(model) for model in self.population]
-        best_model = self.population[np.argmax(final_fitness_scores)]
-        print(f"Best model final fitness: {format_money(max(final_fitness_scores))}")
-        return best_model
+        profit = test_stand.simulate_day(recipe, sale_price)
 
-if __name__ == "__main__":
-    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Create a unique filename based on the current date and time
-    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = f"lemonade_stand_log_{current_time}.txt"
+        if profit > best_profit:
+            best_profit = profit
+            best_recipe = recipe
+            best_price = sale_price
+            best_purchase = purchase
 
-    # Create a logger
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
+    return best_recipe, best_price, best_purchase
 
-    # Create file handler which logs even debug messages
-    file_handler = logging.FileHandler(log_filename)
-    file_handler.setLevel(logging.DEBUG)
+# Get input from user
+prices = {}
+for item in ["cups", "lemons", "sugar", "ice"]:
+    while True:
+        try:
+            price = float(input(f"Enter the price for one {item} (in cents): ")) / 100
+            if price <= 0:
+                raise ValueError
+            prices[item] = price
+            break
+        except ValueError:
+            print("Please enter a valid positive number.")
 
-    # Create console handler with a higher log level
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+while True:
+    try:
+        money = float(input("Enter the amount of money you have (in dollars): "))
+        if money <= 0:
+            raise ValueError
+        break
+    except ValueError:
+        print("Please enter a valid positive number.")
 
-    # Create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+while True:
+    try:
+        temperature = float(input("Enter the temperature (in Fahrenheit): "))
+        if temperature < 0 or temperature > 120:
+            raise ValueError
+        break
+    except ValueError:
+        print("Please enter a valid temperature between 0 and 120.")
 
-    # Add the handlers to the logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    print("Initializing Evolutionary Trainer...")
-    trainer = EvolutionaryTrainer()
-    print("Beginning training process...")
-    best_model = trainer.train()
-    
-    print("\nTesting best model on a 30-day game simulation...")
-    game = LemonadeStand(duration=30)
-    total_profit = 0
-    for day in range(game.state['duration']):
-        game.new_day()
-        state = np.array([
-            float(game.state['temperature']),
-            float(game.state['price_cups'][0]),
-            float(game.state['price_lemons'][0]),
-            float(game.state['price_sugar'][0]),
-            float(game.state['price_ice'][0]),
-            float(game.state['cups']),
-            float(game.state['lemons']),
-            float(game.state['sugar']),
-            float(game.state['ice']),
-            float(game.state['money']),
-            float(game.state['popularity'])
-        ])
-        prediction = best_model.predict(np.array([state]), verbose=0)[0]
-        
-        cups_to_buy = max(0, int(prediction[0] ))  # 0 to 50 cups (1250 max)
-        lemons_to_buy = max(0, int(prediction[1]))  # 0 to 20 lemons (500 max)
-        sugar_to_buy = max(0, int(prediction[2] ))  # 0 to 20 sugar (500 max)
-        ice_to_buy = max(0, int(prediction[3] )) 
-        
-        # Ensure we don't overspend
-        total_cost = (cups_to_buy * game.state['price_cups'][0] +
-                        lemons_to_buy * game.state['price_lemons'][0] +
-                        sugar_to_buy * game.state['price_sugar'][0] +
-                        ice_to_buy * game.state['price_ice'][0])
-        
-        if total_cost > game.state['money']:
-            scale_factor = game.state['money'] / total_cost
-            cups_to_buy = int(cups_to_buy * scale_factor)
-            lemons_to_buy = int(lemons_to_buy * scale_factor)
-            sugar_to_buy = int(sugar_to_buy * scale_factor)
-            ice_to_buy = int(ice_to_buy * scale_factor)
-        
-        print(f"Buying: {cups_to_buy} cups, {lemons_to_buy} lemons, {sugar_to_buy} sugar, {ice_to_buy} ice")
-        
-        game.buy_supplies('cups', cups_to_buy, 0)
-        game.buy_supplies('lemons', lemons_to_buy, 0)
-        game.buy_supplies('sugar', sugar_to_buy, 0)
-        game.buy_supplies('ice', ice_to_buy, 0)
-        recipe_amount1 = max(1, int(prediction[5]))
-        recipe_amount2 = max(1, int(prediction[6] ))
-        recipe_amount3 = max(1, int(prediction[7] ))
-        game.set_recipe(recipe_amount1, recipe_amount2, recipe_amount3)
-        
-        results = game.simulate_day()
-        daily_profit = results['total_sold'] * game.state['price'] - game.state['total_expenses']
-        total_profit += daily_profit
-        
-        print(f"Day {game.state['day']}: Profit = {format_money(daily_profit)}")
+while True:
+    try:
+        weather_index = int(input("Enter the weather index (1-5, where 1 is worst and 5 is best): "))
+        if weather_index < 1 or weather_index > 5:
+            raise ValueError
+        break
+    except ValueError:
+        print("Please enter a valid weather index between 1 and 5.")
 
-    print(f"\nTotal profit over 30 days: {format_money(total_profit)}")
-    print("Simulation complete.")
+# Create stand and run optimization
+stand = LemonadeStand(prices, money, temperature, weather_index)
+optimal_recipe, optimal_price, optimal_purchase = optimize_stand(stand)
 
-    print("\nBest model's decision-making:")
-    test_state = np.array([
-        25.0,  # temperature (25°C, a warm day)
-        85,    # price_cups[0] (85 cents for 25 cups)
-        75,    # price_lemons[0] (75 cents for 25 lemons)
-        60,    # price_sugar[0] (60 cents for 25 cups of sugar)
-        85,    # price_ice[0] (85 cents for 25 ice cubes)
-        100,   # cups (current inventory)
-        50,    # lemons (current inventory)
-        75,    # sugar (current inventory)
-        200,   # ice (current inventory)
-        10000, # money (10000 cents = $100.00)
-        50     # popularity (moderate popularity)
-    ])
-    prediction = best_model.predict(np.array([test_state]), verbose=0)[0]
-    
-    print(f"For a typical summer day (25°C) with average market prices and inventory:")
-    print(f"  Cups to buy: {max(0, int(prediction[0] * 50)) }")
-    print(f"  Lemons to buy: {max(0, int(prediction[1] * 20)) }")
-    print(f"  Sugar to buy: {max(0, int(prediction[2] * 20)) }")
-    print(f"  Ice to buy: {max(0, int(prediction[3] * 50)) }")
-    print(f"  Price set: {format_money(max(1, min(prediction[4] * 2, 200)))}")
-    recipe_amount1 = max(1, int(prediction[5]))
-    recipe_amount2 = max(1, int(prediction[6]))
-    recipe_amount3 = max(1, int(prediction[7] ))
-    print(f"  Recipe: {recipe_amount1} lemons, {recipe_amount2} sugar, {recipe_amount3} ice")
+print("\nOptimal Strategy:")
+print(f"Recipe:")
+print(f"  Lemons: {optimal_recipe['lemons']}")
+print(f"  Sugar: {optimal_recipe['sugar']}")
+print(f"  Ice: {optimal_recipe['ice']}")
+print(f"Sale Price: {optimal_price:.2f}¢")
+print("\nOptimal Purchase Quantities:")
+for item, quantity in optimal_purchase.items():
+    print(f"  {item.capitalize()}: {quantity}")
+print("\nCosts and Profit:")
+total_cost = sum(optimal_purchase[item] * prices[item] for item in optimal_purchase)
+print(f"  Total Cost of Ingredients: ${total_cost:.2f}")
+print(f"  Remaining Money: ${stand.state['money'] - total_cost:.2f}")
+print(f"  Estimated Profit: ${stand.simulate_day(optimal_recipe, optimal_price):.2f}")
+# After optimization, simulate the day with the best strategy for debugging
+print("\nSimulating the day with the optimal strategy:")
+stand.buy_ingredients(optimal_purchase)
+final_profit = stand.simulate_day(optimal_recipe, optimal_price)
 
+print(f"\nFinal Profit: ${final_profit:.2f}")
+print(f"Remaining Ingredients:")
+print(f"  Cups: {stand.state['cups']}")
+print(f"  Lemons: {stand.state['lemons']}")
+print(f"  Sugar: {stand.state['sugar']}")
+print(f"  Ice: {stand.state['ice']}")
