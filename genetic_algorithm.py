@@ -80,7 +80,7 @@ def genetic_algorithm(population_size=750, generations=100, fixed_temperature=75
             chromosome.fitness = evaluate_fitness(chromosome, fixed_temperature, fixed_weather)
 
         # Check if all chromosomes have fitness 0
-        if all(chromosome.fitness == 0 for chromosome in population):
+        if all(chromosome.fitness <= 0 for chromosome in population):
             # Reroll the entire generation
             population = [Chromosome() for _ in range(population_size)]
             print(f"Generation {generation + 1}: All chromosomes had fitness 0. Rerolling entire generation.")

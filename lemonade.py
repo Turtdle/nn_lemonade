@@ -44,10 +44,10 @@ def buy_ingredients(state):
         state['ice'] += state['buy_order'][3]
         state['buy_order'] = []
         state['failed_to_buy'] = False
-        print("Bought ingredients!")
+        #print("Bought ingredients!")
     else:
         state['failed_to_buy'] = True
-        print("Failed to buy ingredients")
+        #print("Failed to buy ingredients")
 def simulate_day(state):
     day_state = state
     buy_ingredients(day_state)
@@ -56,7 +56,7 @@ def simulate_day(state):
     for _ in range(1000):
         simulation.update()
         if simulation.sold_out:
-            print("Sold out!")
+            #print("Sold out!")
             break
 
 
@@ -97,19 +97,6 @@ class Simulation:
 
     def check_sold_out(self):
         if self.in_pitcher == 0 and (self.state['cups'] == 0 or self.state['ice'] < self.state['recipe_ice'] or self.state['lemons'] < self.state['recipe_lemons'] or self.state['sugar'] < self.state['recipe_sugar']):
-            #print which one is missing
-            if self.state['cups'] == 0:
-                print("Out of cups!")
-            if self.state['ice'] < self.state['recipe_ice']:
-                print("Out of ice!")
-            if self.state['lemons'] < self.state['recipe_lemons']:
-                print("Out of lemons!")
-            if self.state['sugar'] < self.state['recipe_sugar']:
-                print("Out of sugar!")
-            if self.in_pitcher == 0:
-                print("Out of lemonade!")
-            else:
-                print("Out of something!")
             self.sold_out = True
 
     def buy_or_pass(self, state, weather_index):
@@ -172,13 +159,13 @@ class Simulation:
 
         if state['recipe_lemons'] < 4 or state['recipe_sugar'] < 4:
             reasons[2] = 1
-            print("More lemons and sugar!")
+            #print("More lemons and sugar!")
         if state['recipe_ice'] < (state['temperature'] - 49) / 5:
             reasons[1] = 1
-            print("More ice!")
+            #print("More ice!")
         if state['price'] > state['temperature'] / 4:
             reasons[0] = 1
-            print("Lower price!")
+            #print("Lower price!")
 
         a = random.randint(0, 2)
         return a + 1 if reasons[a] == 1 else 0
@@ -191,7 +178,7 @@ class Simulation:
             state['sugar'] -= state['recipe_sugar']
         else:
             self.sold_out = True
-            print("Out of lemonade!")
+            #print("Out of lemonade!")
 
     
 
