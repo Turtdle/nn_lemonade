@@ -109,13 +109,13 @@ def genetic_algorithm(population_size=750, generations=100, fixed_temperature=75
     return population[0]  # Return the best chromosome
 
 def run_optimization_for_conditions():
-    temperatures = [60, 70, 80, 90, 100]
+    temperatures = [80]
     results = {}
 
     for temp in temperatures:
-        for weather in WEATHER:
+        for weather in ['sunny']:
             print(f"\nRunning optimization for Temperature: {temp}°F, Weather: {weather}")
-            best_solution = genetic_algorithm(population_size=750, generations=150, fixed_temperature=temp, fixed_weather=weather)
+            best_solution = genetic_algorithm(population_size=1000, generations=100, fixed_temperature=temp, fixed_weather=weather)
             
             results[(temp, weather)] = {
                 'genes': best_solution.genes,

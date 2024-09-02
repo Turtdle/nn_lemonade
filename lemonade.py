@@ -19,13 +19,21 @@ class Customer:
 
     def check_buy(self, state, weather_index):
         random1 = random.random()
-        if not self.bought and 173 <= self.x <= 398 and self.simulation.buy_or_pass(state, weather_index) > random1:
-            self.bought = self.simulation.buy_glass(state, self)
+        
+        if (not self.bought):
+            if (173 <= self.x <= 398):
+                #print(f"buy_or_pass: {self.simulation.buy_or_pass(state, weather_index)}, random1: {random1}")
+                if (self.simulation.buy_or_pass(state, weather_index) > random1):
+                    #print("Buying!")
+                    self.simulation.buy_glass(state, self)
+                
+                self.bought = True 
+
         return self.bought
 
     def add_bubble(self, bubble):
         self.bubble = bubble
-        self.bubble_time = random.randint(10, 20)
+        self.bubble_time = 15
 
     def update_bubble(self):
         if self.bubble_time >= 0:
@@ -56,7 +64,7 @@ def simulate_day(state):
     for _ in range(1000):
         simulation.update()
         if simulation.sold_out:
-            #print("Sold out!")
+           # print("Sold out!")
             break
 
 
@@ -94,6 +102,7 @@ class Simulation:
                 self.customers.remove(customer)
             elif customer.check_buy(self.state, weather_index):
                 self.give_rep(self.state)
+                #customer.bought = False
 
     def check_sold_out(self):
         if self.in_pitcher == 0 and (self.state['cups'] == 0 or self.state['ice'] < self.state['recipe_ice'] or self.state['lemons'] < self.state['recipe_lemons'] or self.state['sugar'] < self.state['recipe_sugar']):
@@ -111,7 +120,8 @@ class Simulation:
         for customer in self.customers:
             if customer.bubble_time > 0:
                 demand *= 1.3 if customer.bubble == 0 else 0.5
-        return (demand + random.uniform(-0.1, 0.1)) * 1.3
+        #print(demand * 1.3)
+        return (demand) * 1.3
 
     def buy_glass(self, state, customer):
         if not self.sold_out and self.in_pitcher > 0 and  state['cups'] > 0 and state['ice'] >= state['recipe_ice']:
@@ -120,25 +130,19 @@ class Simulation:
             state['cups'] -= 1
             state['money'] += state['price']
             self.total_sold += 1
-
             if self.in_pitcher == 0:
                 self.refill_pitcher()
-        
-
             if self.give_rep(state) < 1:
                 bubble = self.check_bubble(state)
                 if bubble > 0:
                     customer.add_bubble(bubble)
                 elif random.random() < 0.3:
                     customer.bubble = 0
-                    
-                
-                    
-
-
+            #print("buy_glass is returning True")
             return True
         else:
             self.sold_out = True
+            #print("buy_glass is returning False")
             return False
 
 
@@ -159,13 +163,16 @@ class Simulation:
 
         if state['recipe_lemons'] < 4 or state['recipe_sugar'] < 4:
             reasons[2] = 1
-            #print("More lemons and sugar!")
+            #print("Lemons and sugar too low")
+            return 3
         if state['recipe_ice'] < (state['temperature'] - 49) / 5:
             reasons[1] = 1
-            #print("More ice!")
+            #print("Ice too low")
+            return 2
         if state['price'] > state['temperature'] / 4:
             reasons[0] = 1
-            #print("Lower price!")
+            #print("Price too high")
+            return 1
 
         a = random.randint(0, 2)
         return a + 1 if reasons[a] == 1 else 0
@@ -185,21 +192,21 @@ class Simulation:
 def main():
     # Example usage
     cur_state = {
-        'cups': 0,
-        'lemons': 0,
-        'sugar': 0,
-        'ice': 0,
-        'money': 2000,
-        'temperature': 60,
+        'cups': 107,
+        'lemons': 57,
+        'sugar': 32,
+        'ice': 527,
+        'money': 0,
+        'temperature': 80,
         'weather': 'sunny',
-        'price': 29,
-        'recipe_lemons': 4,
+        'price': 33,
+        'recipe_lemons': 7,
         'recipe_sugar': 4,
-        'recipe_ice': 4,
+        'recipe_ice': 5,
         'total_income': 0,
         'rep_level': 0,
         'reputation': 0,
-        'buy_order' : [131,48,48,524],
+        'buy_order' : [],
         'failed_to_buy' : False
     }
 
