@@ -66,8 +66,8 @@ def evaluate_fitness(chromosome, fixed_temperature, fixed_weather):
         'failed_to_buy': False
     }
 
-    for _ in range(7):  # Simulate 7 days
-        state = simulate_day(state)
+    
+    state = simulate_day(state)
 
     return state['money'] - 2000  # Return profit
 

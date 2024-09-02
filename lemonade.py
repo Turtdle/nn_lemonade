@@ -20,18 +20,17 @@ class Customer:
     def check_buy(self, state, weather_index):
         random1 = random.random()
         if not self.bought and 173 <= self.x <= 398 and self.simulation.buy_or_pass(state, weather_index) > random1:
-            self.bought = self.simulation.buy_glass(state)
-            if self.bought and self.simulation.give_rep(state) < 1:
-                self.bubble = self.simulation.check_bubble(state)
-                if self.bubble > 0:
-                    self.bubble_time = random.randint(10, 20)
+            self.bought = self.simulation.buy_glass(state, self)
         return self.bought
 
+    def add_bubble(self, bubble):
+        self.bubble = bubble
+        self.bubble_time = random.randint(10, 20)
+
     def update_bubble(self):
-        if self.bubble_time > 0:
+        if self.bubble_time >= 0:
             self.bubble_time -= 1
-            if self.bubble_time == 0:
-                self.bubble = -1
+
 WEATHER = ['sunny', 'hazy', 'cloudy', 'overcast', 'rain']
 def buy_ingredients(state):
     if state['buy_order'] == []:
@@ -45,15 +44,19 @@ def buy_ingredients(state):
         state['ice'] += state['buy_order'][3]
         state['buy_order'] = []
         state['failed_to_buy'] = False
+        print("Bought ingredients!")
     else:
         state['failed_to_buy'] = True
+        print("Failed to buy ingredients")
 def simulate_day(state):
-    
-    simulation = Simulation(state)
-    buy_ingredients(state)
+    day_state = state
+    buy_ingredients(day_state)
+    simulation = Simulation(day_state)
+    #buy_ingredients(simulation.state)
     for _ in range(1000):
         simulation.update()
         if simulation.sold_out:
+            print("Sold out!")
             break
 
 
@@ -93,7 +96,20 @@ class Simulation:
                 self.give_rep(self.state)
 
     def check_sold_out(self):
-        if self.in_pitcher == 0 or self.state['cups'] == 0 or self.state['ice'] < self.state['recipe_ice']:
+        if self.in_pitcher == 0 and (self.state['cups'] == 0 or self.state['ice'] < self.state['recipe_ice'] or self.state['lemons'] < self.state['recipe_lemons'] or self.state['sugar'] < self.state['recipe_sugar']):
+            #print which one is missing
+            if self.state['cups'] == 0:
+                print("Out of cups!")
+            if self.state['ice'] < self.state['recipe_ice']:
+                print("Out of ice!")
+            if self.state['lemons'] < self.state['recipe_lemons']:
+                print("Out of lemons!")
+            if self.state['sugar'] < self.state['recipe_sugar']:
+                print("Out of sugar!")
+            if self.in_pitcher == 0:
+                print("Out of lemonade!")
+            else:
+                print("Out of something!")
             self.sold_out = True
 
     def buy_or_pass(self, state, weather_index):
@@ -110,8 +126,8 @@ class Simulation:
                 demand *= 1.3 if customer.bubble == 0 else 0.5
         return (demand + random.uniform(-0.1, 0.1)) * 1.3
 
-    def buy_glass(self, state):
-        if not self.sold_out and self.in_pitcher > 0 and state['cups'] > 0 and state['ice'] >= state['recipe_ice']:
+    def buy_glass(self, state, customer):
+        if not self.sold_out and self.in_pitcher > 0 and  state['cups'] > 0 and state['ice'] >= state['recipe_ice']:
             self.in_pitcher -= 1
             state['ice'] -= state['recipe_ice']
             state['cups'] -= 1
@@ -120,6 +136,18 @@ class Simulation:
 
             if self.in_pitcher == 0:
                 self.refill_pitcher()
+        
+
+            if self.give_rep(state) < 1:
+                bubble = self.check_bubble(state)
+                if bubble > 0:
+                    customer.add_bubble(bubble)
+                elif random.random() < 0.3:
+                    customer.bubble = 0
+                    
+                
+                    
+
 
             return True
         else:
@@ -144,11 +172,13 @@ class Simulation:
 
         if state['recipe_lemons'] < 4 or state['recipe_sugar'] < 4:
             reasons[2] = 1
+            print("More lemons and sugar!")
         if state['recipe_ice'] < (state['temperature'] - 49) / 5:
             reasons[1] = 1
-            #print("More ice!")
+            print("More ice!")
         if state['price'] > state['temperature'] / 4:
             reasons[0] = 1
+            print("Lower price!")
 
         a = random.randint(0, 2)
         return a + 1 if reasons[a] == 1 else 0
@@ -159,6 +189,11 @@ class Simulation:
             self.in_pitcher = 8 + state['recipe_ice']
             state['lemons'] -= state['recipe_lemons']
             state['sugar'] -= state['recipe_sugar']
+        else:
+            self.sold_out = True
+            print("Out of lemonade!")
+
+    
 
 def main():
     # Example usage
@@ -167,17 +202,17 @@ def main():
         'lemons': 0,
         'sugar': 0,
         'ice': 0,
-        'money': 20,
-        'temperature': 84,
+        'money': 2000,
+        'temperature': 60,
         'weather': 'sunny',
-        'price': 20,
-        'recipe_lemons': 1,
-        'recipe_sugar': 1,
-        'recipe_ice': 2,
+        'price': 29,
+        'recipe_lemons': 4,
+        'recipe_sugar': 4,
+        'recipe_ice': 4,
         'total_income': 0,
-        'rep_level': 50,
-        'reputation': 1.0,
-        'buy_order' : [96,24,12,198],
+        'rep_level': 0,
+        'reputation': 0,
+        'buy_order' : [131,48,48,524],
         'failed_to_buy' : False
     }
 
