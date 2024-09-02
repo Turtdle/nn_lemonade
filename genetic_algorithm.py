@@ -16,32 +16,37 @@ class Chromosome:
             'buy_sugar': random.randint(0, 750),
             'buy_ice': random.randint(0, 1500)
         }
+
+class Individual:
+    def __init__(self):
+        self.chromosomes = [Chromosome() for _ in range(7)]  # 7 chromosomes, one for each day
         self.fitness = 0
 
     def mutate(self):
-        gene = random.choice(list(self.genes.keys()))
+        chromosome = random.choice(self.chromosomes)
+        gene = random.choice(list(chromosome.genes.keys()))
         if gene == 'price':
-            self.genes[gene] += random.randint(-5, 5)
+            chromosome.genes[gene] += random.randint(-3, 3)
         elif gene in ['recipe_lemons', 'recipe_sugar']:
-            self.genes[gene] += random.randint(-1, 1)
-            self.genes[gene] = max(4, self.genes[gene])  # Ensure minimum of 4
+            chromosome.genes[gene] += random.randint(-1, 1)
+            chromosome.genes[gene] = max(4, chromosome.genes[gene])  # Ensure minimum of 4
         elif gene == 'recipe_ice':
-            self.genes[gene] += random.randint(-2, 2)
+            chromosome.genes[gene] += random.randint(-2, 2)
         else:  # buy amounts
-            self.genes[gene] += random.randint(-10, 10)
+            chromosome.genes[gene] += random.randint(-5, 5)
         
-        self.genes[gene] = max(1, self.genes[gene])  # Ensure all values are at least 1
+        chromosome.genes[gene] = max(1, chromosome.genes[gene])  # Ensure all values are at least 1
 
 def crossover(parent1, parent2):
-    child = Chromosome()
-    for gene in child.genes:
+    child = Individual()
+    for i in range(7):
         if random.random() < 0.5:
-            child.genes[gene] = parent1.genes[gene]
+            child.chromosomes[i] = parent1.chromosomes[i]
         else:
-            child.genes[gene] = parent2.genes[gene]
+            child.chromosomes[i] = parent2.chromosomes[i]
     return child
 
-def evaluate_fitness(chromosome, fixed_temperature, fixed_weather):
+def evaluate_fitness(individual, fixed_temperature, fixed_weather):
     state = {
         'cups': 0,
         'lemons': 0,
@@ -50,40 +55,41 @@ def evaluate_fitness(chromosome, fixed_temperature, fixed_weather):
         'money': 2000,  # Starting with $20
         'temperature': fixed_temperature,
         'weather': fixed_weather,
-        'price': chromosome.genes['price'],
-        'recipe_lemons': chromosome.genes['recipe_lemons'],
-        'recipe_sugar': chromosome.genes['recipe_sugar'],
-        'recipe_ice': chromosome.genes['recipe_ice'],
         'total_income': 0,
         'rep_level': 0,
         'reputation': 0,
-        'buy_order': [
+        'failed_to_buy': False
+    }
+
+    for chromosome in individual.chromosomes:
+        state['price'] = chromosome.genes['price']
+        state['recipe_lemons'] = chromosome.genes['recipe_lemons']
+        state['recipe_sugar'] = chromosome.genes['recipe_sugar'] 
+        state['recipe_ice'] = chromosome.genes['recipe_ice']
+        state['buy_order'] = [
             chromosome.genes['buy_cups'],
             chromosome.genes['buy_lemons'],
             chromosome.genes['buy_sugar'],
             chromosome.genes['buy_ice']
-        ],
-        'failed_to_buy': False
-    }
+        ]
 
-    
-    state = simulate_day(state)
+        state = simulate_day(state)
 
-    return state['money'] - 2000  # Return profit
+    return state['money'] - 2000, state  # Return profit and final state
 
 def genetic_algorithm(population_size=750, generations=100, fixed_temperature=75, fixed_weather='sunny'):
-    population = [Chromosome() for _ in range(population_size)]
+    population = [Individual() for _ in range(population_size)]
 
     for generation in range(generations):
         # Evaluate fitness
-        for chromosome in population:
-            chromosome.fitness = evaluate_fitness(chromosome, fixed_temperature, fixed_weather)
+        for individual in population:
+            individual.fitness, _ = evaluate_fitness(individual, fixed_temperature, fixed_weather)
 
-        # Check if all chromosomes have fitness 0
-        if all(chromosome.fitness <= 0 for chromosome in population):
+        # Check if all individuals have fitness 0
+        if all(individual.fitness <= 0 for individual in population):
             # Reroll the entire generation
-            population = [Chromosome() for _ in range(population_size)]
-            print(f"Generation {generation + 1}: All chromosomes had fitness 0. Rerolling entire generation.")
+            population = [Individual() for _ in range(population_size)]
+            print(f"Generation {generation + 1}: All individuals had fitness 0. Rerolling entire generation.")
             continue  # Skip to the next generation
 
         # Sort population by fitness
@@ -106,7 +112,7 @@ def genetic_algorithm(population_size=750, generations=100, fixed_temperature=75
 
         population = next_generation
 
-    return population[0]  # Return the best chromosome
+    return population[0]  # Return the best individual
 
 def run_optimization_for_conditions():
     temperatures = [80]
@@ -115,20 +121,39 @@ def run_optimization_for_conditions():
     for temp in temperatures:
         for weather in ['sunny']:
             print(f"\nRunning optimization for Temperature: {temp}°F, Weather: {weather}")
-            best_solution = genetic_algorithm(population_size=1000, generations=100, fixed_temperature=temp, fixed_weather=weather)
+            best_solution = genetic_algorithm(population_size=100, generations=50, fixed_temperature=temp, fixed_weather=weather)
+            
+            _, final_state = evaluate_fitness(best_solution, temp, weather)  # Get the final state
             
             results[(temp, weather)] = {
-                'genes': best_solution.genes,
-                'fitness': best_solution.fitness
+                'chromosomes': [chromosome.genes for chromosome in best_solution.chromosomes],
+                'fitness': best_solution.fitness,
+                'final_state': final_state
             }
             print(f"Best solution for Temperature: {temp}°F, Weather: {weather}:")
-            print(best_solution.genes)
+            print([chromosome.genes for chromosome in best_solution.chromosomes])
 
     return results
 
 # Run the optimization for various conditions
 print("Running genetic algorithm for various weather conditions and temperatures...")
 optimization_results = run_optimization_for_conditions()
+print("Optimization complete! Best solutions found:")
+print(optimization_results)
+
+# Perform a final run with the best solution and include all state results in the JSON file
+best_solution_key = list(optimization_results.keys())[0]  # Get the key of the first (and only) best solution
+best_solution = Individual()
+best_solution.chromosomes = [Chromosome() for _ in range(7)]
+for i, genes in enumerate(optimization_results[best_solution_key]['chromosomes']):
+    best_solution.chromosomes[i].genes = genes
+
+print("\nPerforming a final run with the best solution...")
+_, final_state = evaluate_fitness(best_solution, best_solution_key[0], best_solution_key[1])
+final_results = {
+    'chromosomes': [chromosome.genes for chromosome in best_solution.chromosomes],
+    'final_state': final_state
+}
 
 # Save results to a file
 with open('lemonade_optimization_results.json', 'w') as f:
@@ -138,9 +163,14 @@ with open('lemonade_optimization_results.json', 'w') as f:
         json_results[key] = {
             'temperature': temp,
             'weather': weather,
-            'genes': result['genes'],
-            'profit': result['fitness'] / 100  # Convert to dollars
+            'chromosomes': result['chromosomes'],
+            'profit': result['fitness'] / 100,  # Convert to dollars
+            'final_state': result['final_state']
         }
+    json_results['final_results'] = {
+        'chromosomes': final_results['chromosomes'],
+        'final_state': final_results['final_state']
+    }
     json.dump(json_results, f, indent=4)
 
 print("Results have been saved to 'lemonade_optimization_results.json'")
