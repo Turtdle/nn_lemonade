@@ -206,7 +206,7 @@ def main():
         'total_income': 0,
         'rep_level': 0,
         'reputation': 0,
-        'buy_order' : [],
+        'buy_order' : [1,1,1,1],
         'failed_to_buy' : False
     }
 

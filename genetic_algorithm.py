@@ -12,8 +12,8 @@ class Chromosome:
             'recipe_sugar': random.randint(4, 12),
             'recipe_ice': random.randint(1, 15),
             'buy_cups': random.randint(0, 500),
-            'buy_lemons': random.randint(0, 750),
-            'buy_sugar': random.randint(0, 750),
+            'buy_lemons': random.randint(0, 500),
+            'buy_sugar': random.randint(0, 500),
             'buy_ice': random.randint(0, 1500)
         }
 
@@ -74,12 +74,15 @@ def evaluate_fitness(individual, fixed_temperature, fixed_weather):
         ]
 
         state = simulate_day(state)
+        state['ice'] = 0  # Reset ice at the end of each day
+        state['customers'] = []
+        state['failed_to_buy'] = False
 
-    return state['money'] - 2000, state  # Return profit and final state
+    return state['money'] - 2000 + state['total_sold'] * 10, state  # Return profit and final state
 
 def genetic_algorithm(population_size=750, generations=100, fixed_temperature=75, fixed_weather='sunny'):
     population = [Individual() for _ in range(population_size)]
-
+    past_best_fitness = -1
     for generation in range(generations):
         # Evaluate fitness
         for individual in population:
@@ -92,11 +95,13 @@ def genetic_algorithm(population_size=750, generations=100, fixed_temperature=75
             print(f"Generation {generation + 1}: All individuals had fitness 0. Rerolling entire generation.")
             continue  # Skip to the next generation
 
+            
         # Sort population by fitness
         population.sort(key=lambda x: x.fitness, reverse=True)
 
         # Print best fitness of this generation
         print(f"Generation {generation + 1}, Best Fitness: {population[0].fitness}")
+        print(f"Average Fitness: {sum(individual.fitness for individual in population) / population_size}")
 
         # Select top half as parents for next generation
         parents = population[:population_size // 2]
@@ -109,7 +114,7 @@ def genetic_algorithm(population_size=750, generations=100, fixed_temperature=75
             if random.random() < 0.1:  # 10% chance of mutation
                 child.mutate()
             next_generation.append(child)
-
+        
         population = next_generation
 
     return population[0]  # Return the best individual
@@ -121,7 +126,7 @@ def run_optimization_for_conditions():
     for temp in temperatures:
         for weather in ['sunny']:
             print(f"\nRunning optimization for Temperature: {temp}°F, Weather: {weather}")
-            best_solution = genetic_algorithm(population_size=100, generations=50, fixed_temperature=temp, fixed_weather=weather)
+            best_solution = genetic_algorithm(population_size=100, generations=500, fixed_temperature=temp, fixed_weather=weather)
             
             _, final_state = evaluate_fitness(best_solution, temp, weather)  # Get the final state
             
